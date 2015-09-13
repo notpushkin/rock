@@ -11,7 +11,7 @@ $ rock balance
 ## Установка
 
 ```bash
-$ pipsi install rock-cli
+$ pipsi install --python python3 rock-cli
 # - или -
-$ pip install rock-cli
+$ pip3 install rock-cli
 ```

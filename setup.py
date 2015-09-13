@@ -2,8 +2,12 @@ from setuptools import setup
 
 setup(
     name='rock-cli',
-    version='0.1',
-    py_modules=['rock_cli'],
+    version='0.1.1',
+    author='Ale',
+    author_email='ale@songbee.net',
+    description='A Rocketbank CLI',
+    url='https://github.com/iamale/rock',
+    packages = ['rock_cli'],
     install_requires=[
         'Click',
         'requests',
