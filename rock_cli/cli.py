@@ -42,6 +42,8 @@ def register(g, phone):
     except RocketException as e:
         click.secho(str(e), fg='red')
 
+    click.secho("Добро пожаловать, {}!".format(resp['user']['first_name']), fg='green')
+
     g.config.token = resp['token']
     g.config.email = resp['user']['email']
     g.config.write()
