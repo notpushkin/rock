@@ -1,7 +1,9 @@
 import os
 from pprint import pprint
+from tabulate import tabulate
 import click
 from yamlcfg import YAMLConfig
+
 from .rocket import Rocket, RocketException
 from .util import SuperDict
 
@@ -105,6 +107,32 @@ def balance(g):
         code=j['balance']['currency_code'],
         miles=int(j['miles'])))
 
+@cli.command()
+@click.pass_obj
+def feed(g):
+    """
+    Показывает последние операции в ленте.
+    """
+    r = g.rocket.get("/operations/cool_feed")
+    j = r.json()
+
+    lines = []
+
+    for date, operations in sorted(list(j['dates'].items())):
+        lines += [[
+          click.style("===== %s =====" % date, fg='blue', bold=True),
+          None, None, None
+        ]] + [[
+          op['merchant']['name'],
+          "",
+          op['display_money']['amount'],
+          op['display_money']['currency_code'],
+        ] for op in reversed(operations)] + [[
+          None, None, None, None
+        ]]
+
+    click.echo(tabulate(lines, tablefmt="plain"))
+
 
 @cli.command()
 @click.option('--recipient', prompt="Получатель",
@@ -124,11 +152,21 @@ def transfer(g, recipient, amount):
 
     if j['status'] == "approved":
         template = "".join([
-            click.style("{rur} {code}, ", fg='green', bold=True),
-            "{miles} рокетрублей"])
-        click.echo(template.format(
-            rur=j['balance']['amount'],
-            code=j['balance']['currency_code'],
-            miles=int(j['miles'])))
+            click.style("Платёж принят! ", fg='green', bold=True),
+            "Остаток: {rur} рублей"])
+        click.echo(template.format(rur=j['balance']))
     else:
         click.secho(j['errors'], fg='red', bold=True)
+
+
+@cli.command()
+@click.pass_obj
+def repl(g):
+    import code
+    import rlcompleter
+    import readline
+    import sys
+
+    readline.parse_and_bind("tab: complete")
+    shell = code.InteractiveConsole(g)
+    shell.interact(banner="Python %s on %s" % (sys.version, sys.platform))

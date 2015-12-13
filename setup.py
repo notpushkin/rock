@@ -12,6 +12,7 @@ setup(
         'Click',
         'requests',
         'yamlcfg',
+        'tabulate',
     ],
     entry_points='''
         [console_scripts]
