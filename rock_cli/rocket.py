@@ -1,12 +1,17 @@
+import hashlib
+import time
 import uuid
+
 import requests
 
-__version__ = "0.0.1"
+__version__ = "0.0.5"
 
 class Rocket:
-  def __init__(self, device_id=None, token=None):
+  def __init__(self, device_id=None, token=None, user_agent=None):
     self.token = token
     self.device_id = device_id or self.generate_id()
+    self.user_agent = user_agent or \
+        "RocketScience/%s (ale@songbee.net)" % __version__
 
   @staticmethod
   def generate_id(namespace="SCIENCE"):
@@ -17,12 +22,18 @@ class Rocket:
     json = json or {}
 
     if not url.startswith(("http://", "https://")):
-        url = "https://rocketbank.ru/api/v4/" + url
+        url = "https://rocketbank.ru/api/v5/" + url
 
     headers['x-device-id'] = self.device_id
     headers['x-device-os'] = "RocketScience %s" % __version__
-    headers['x-app-version'] = "2.1.0"
+    headers['x-app-version'] = "2.8.6"
     headers['x-device-type'] = "Ale RocketScience_%s" % __version__
+
+    now = int(time.time())
+    headers['x-sig'] = hashlib.md5((\
+        "0Jk211uvxyyYAFcSSsBK3+etfkDPKMz6asDqrzr+f7c=_" + \
+        str(int(now)) + "_dossantos").encode()).hexdigest()
+    headers['x-time'] = str(now)
 
     if self.token:
       json['token'] = self.token
@@ -54,7 +65,7 @@ class Rocket:
 
   def register(self, phone):
     r = self.post(
-      "https://rocketbank.ru/api/v4/devices/register",
+      "/devices/register",
       json={'phone': phone})
     id = r.json()['sms_verification']['id']
     return RocketSmsVerification(id, self)
@@ -65,7 +76,7 @@ class Rocket:
     password == "рокеткод" / код, вводимый при открытии
     """
     r = self.get(
-      "https://rocketbank.ru/api/v4/login",
+      "/login",
       json={
         'email': email,
         'password': password
@@ -110,7 +121,7 @@ class RocketSmsVerification:
 
   def verify(self, code):
     r = self.rocket.patch(
-      "https://rocketbank.ru/api/v4/sms_verifications/%s/verify" % self.id,
+      "/sms_verifications/%s/verify" % self.id,
       json={'code': code})
     j = r.json()
 

@@ -78,7 +78,7 @@ def tariffs(g):
     """
     Посмотреть список тарифов.
     """
-    r = g.rocket.get("https://rocketbank.ru/api/v4/tariffs")
+    r = g.rocket.get("/tariffs")
     # pprint(r.json())
     for tariff in r.json():
         click.echo("- {name} <{url}>".format(
