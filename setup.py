@@ -1,8 +1,10 @@
 from setuptools import setup
 
+from rock_cli import __version__
+
 setup(
     name='rock-cli',
-    version='0.1.1',
+    version=__version__,
     author='Ale',
     author_email='ale@songbee.net',
     description='A Rocketbank CLI',

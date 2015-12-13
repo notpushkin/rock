@@ -1,17 +1,18 @@
 import hashlib
 import time
 import uuid
+import json as json_
 
 import requests
 
-__version__ = "0.0.5"
+API_VERSION = "5"
 
 class Rocket:
     def __init__(self, device_id=None, token=None, user_agent=None):
         self.token = token
         self.device_id = device_id or self.generate_id()
         self.user_agent = user_agent or \
-                "RocketScience/%s (ale@songbee.net)" % __version__
+                "RocketScience/%s (ale@songbee.net)" % API_VERSION
 
     @staticmethod
     def generate_id(namespace="SCIENCE"):
@@ -25,20 +26,19 @@ class Rocket:
                 url = "https://rocketbank.ru/api/v5/" + url
 
         headers['x-device-id'] = self.device_id
-        headers['x-device-os'] = "RocketScience %s" % __version__
-        headers['x-app-version'] = "2.8.6"
-        headers['x-device-type'] = "Ale RocketScience_%s" % __version__
+        headers['User-agent'] = self.user_agent
 
         now = int(time.time())
         headers['x-sig'] = hashlib.md5((\
                 "0Jk211uvxyyYAFcSSsBK3+etfkDPKMz6asDqrzr+f7c=_" + \
                 str(int(now)) + "_dossantos").encode()).hexdigest()
         headers['x-time'] = str(now)
+        headers['content-type'] = "application/json"
 
         if self.token:
             json['token'] = self.token
 
-        r = requests.request(method, url, data=json, headers=headers, **kw)
+        r = requests.request(method, url, data=json_.dumps(json), headers=headers, **kw)
         try:
             resp = r.json()['response']
         except:

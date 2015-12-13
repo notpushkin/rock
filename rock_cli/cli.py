@@ -7,6 +7,9 @@ from yamlcfg import YAMLConfig
 from .rocket import Rocket, RocketException
 from .util import SuperDict
 
+from . import __version__
+from .rocket import API_VERSION
+
 APP_NAME = 'rock-cli'
 
 @click.group(context_settings={'obj': SuperDict()})
@@ -24,7 +27,8 @@ def cli(ctx):
 
     g.rocket = Rocket(
         device_id=Rocket.generate_id("ROCKCLI"),
-        token=g.config.token)
+        token=g.config.token,
+        user_agent="rock-cli/%s (ale@songbee.net)" % __version__)
 
     def login():
         cli.commands['login'].invoke(ctx)
@@ -172,4 +176,15 @@ def repl(g):
 
     readline.parse_and_bind("tab: complete")
     shell = code.InteractiveConsole(g)
-    shell.interact(banner="Python %s on %s" % (sys.version, sys.platform))
+    shell.interact(banner="rock-cli %s, Python %s on %s" % \
+        (__version__, sys.version, sys.platform))
+
+
+@cli.command()
+@click.pass_obj
+def version(g):
+    """
+    Запускает интерпретатор Python с подключенной обёрткой API Рокетбанка.
+    """
+    click.echo("rock-cli %s" % __version__)
+    click.echo("Using Rocketbank API v%s" % API_VERSION)
