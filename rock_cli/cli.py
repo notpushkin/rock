@@ -162,6 +162,9 @@ def transfer(g, recipient, amount):
 @cli.command()
 @click.pass_obj
 def repl(g):
+    """
+    Запускает интерпретатор Python с подключенной обёрткой API Рокетбанка.
+    """
     import code
     import rlcompleter
     import readline
