@@ -25,8 +25,12 @@ def cli(ctx):
     g.config = YAMLConfig(
         paths=[os.path.join(click.get_app_dir(APP_NAME), 'config.yml')])
 
+    if g.config.device_id is None:
+        g.config.device_id = Rocket.generate_id("ROCKCLI")
+        g.config.write()
+
     g.rocket = Rocket(
-        device_id=Rocket.generate_id("ROCKCLI"),
+        device_id=g.config.device_id,
         token=g.config.token,
         user_agent="rock-cli/%s (ale@songbee.net)" % __version__)
 
