@@ -1,20 +1,28 @@
-import os
-from pprint import pprint
-from tabulate import tabulate
+import os, sys
+
 import click
 from yamlcfg import YAMLConfig
 
-from .rocket import Rocket, RocketException
+from tabulate import tabulate
+from pprint import pprint
+
+from .rocket import Rocket
+RocketExceprion = Exception
 from .util import SuperDict
 
 from . import __version__
 from .rocket import API_VERSION
 
 APP_NAME = 'rock-cli'
+CONTEXT_SETTINGS = {
+  "obj": SuperDict(),
+  "help_option_names": ['-h', '--help'],
+}
 
-@click.group(context_settings={'obj': SuperDict()})
+@click.group(context_settings=CONTEXT_SETTINGS)
+@click.option('-v', '--verbose', count=True)
 @click.pass_context
-def cli(ctx):
+def cli(ctx, verbose):
     """
     Консольный клиент для Рокетбанка.
     """
@@ -34,29 +42,39 @@ def cli(ctx):
         token=g.config.token,
         user_agent="rock-cli/%s (ale@songbee.net)" % __version__)
 
-    def login():
-        cli.commands['login'].invoke(ctx)
-
-    g.login = login
-
 
 @cli.command()
-@click.option('--phone', prompt=True)
+@click.argument('phone', required=False)
 @click.pass_obj
 def register(g, phone):
-    rk = g.rocket
-    sms = rk.register(phone)
+    if phone is None:
+        phone = click.prompt("Номер телефона")
+
+    r = g.rocket.devices.register.post(json={'phone': phone})
+    if r.status_code >= 400:
+        return handle_error(r)
+
+    id = r.json()['sms_verification']['id']
     code = click.prompt("Введите код из SMS", type=int)
-    try:
-        resp = sms.verify(code)
-    except RocketException as e:
-        click.secho(str(e), fg='red')
 
-    click.secho("Добро пожаловать, {}!".format(resp['user']['first_name']), fg='green')
+    r = g.rocket.sms_verifications[self.id].verify.patch(json={'code': code})
+    if r.status_code >= 400:
+        return handle_error(r)
+    j = r.json()
 
-    g.config.token = resp['token']
-    g.config.email = resp['user']['email']
+    click.secho("Добро пожаловать, {}!".format(j['user']['first_name']), fg='green')
+
+    g.config.token = j['token']
+    g.config.email = j['user']['email']
     g.config.write()
+
+
+def handle_error(r):
+    resp = r.json()['response']
+    logging.error(resp)
+    if resp['show_it']:
+        click.secho(resp['description'], fg='red')
+    sys.exit(1)
 
 
 @cli.command()
@@ -71,14 +89,17 @@ def login(g, password):
         click.echo("    rock register")
         return
 
-    try:
-        resp = rk.login(email, password)
-    except RocketException as e:
-        click.secho(str(e), fg='red', bold=True)
+    r = rk.login.get(json={
+        'email': email,
+        'password': password
+    })
 
-    click.secho("Добро пожаловать, {}!".format(resp['user']['first_name']), fg='green')
+    if r.status_code >= 400:
+        return handle_error(r)
 
-    g.config.token = resp['token']
+    j = r.json()
+    click.secho("Добро пожаловать, {}!".format(j['user']['first_name']), fg='green')
+    g.config.token = j['token']
     g.config.write()
 
 
@@ -88,13 +109,14 @@ def tariffs(g):
     """
     Посмотреть список тарифов.
     """
-    r = g.rocket.get("/tariffs")
-    # pprint(r.json())
+    r = g.rocket.tariffs.get()
+    if r.status_code >= 400:
+        return handle_error(r)
+
     for tariff in r.json():
         click.echo("- {name} <{url}>".format(
             name=click.style(tariff['name'], fg='green', bold=True),
             url=tariff['url']))
-
 
 @cli.command()
 @click.pass_obj
@@ -102,9 +124,9 @@ def balance(g):
     """
     Посмотреть баланс основного счёта.
     """
-    r = g.rocket.get(
-        "/operations/cool_feed",
-        params={'per_page': 1})
+    r = g.rocket.operations.cool_feed.get(params={'per_page': 1})
+    if r.status_code >= 400:
+        return handle_error(r)
     j = r.json()
 
     template = "".join([
@@ -121,7 +143,9 @@ def feed(g):
     """
     Показывает последние операции в ленте.
     """
-    r = g.rocket.get("/operations/cool_feed")
+    r = g.rocket.operations.cool_feed.get()
+    if r.status_code >= 400:
+        return handle_error(r)
     j = r.json()
 
     lines = []
@@ -152,7 +176,7 @@ def transfer(g, recipient, amount):
     """
     Перевести деньги на номер карты.
     """
-    r = g.rocket.post("/card2card/transfer", params={
+    r = g.rocket.card2card.transfer.post(params={
       'source_card': recipient,
       'amount': amount
     })
@@ -188,7 +212,7 @@ def repl(g):
 @click.pass_obj
 def version(g):
     """
-    Запускает интерпретатор Python с подключенной обёрткой API Рокетбанка.
+    Выводит номер версии приложения.
     """
     click.echo("rock-cli %s" % __version__)
     click.echo("Using Rocketbank API v%s" % API_VERSION)

@@ -12,9 +12,9 @@ setup(
     packages = ['rock_cli'],
     install_requires=[
         'Click',
-        'requests',
         'yamlcfg',
         'tabulate',
+        'arequests==0.1.0',
     ],
     entry_points='''
         [console_scripts]
