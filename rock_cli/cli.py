@@ -7,7 +7,6 @@ from tabulate import tabulate
 from pprint import pprint
 
 from .rocket import Rocket
-RocketExceprion = Exception
 from .util import SuperDict
 
 from . import __version__
@@ -18,6 +17,14 @@ CONTEXT_SETTINGS = {
   "obj": SuperDict(),
   "help_option_names": ['-h', '--help'],
 }
+
+
+def handle_error(r):
+    resp = r.json()["response"]
+    if resp["show_it"]:
+        click.secho(resp["description"], fg="red")
+    sys.exit(1)
+
 
 @click.group(context_settings=CONTEXT_SETTINGS)
 @click.option('-v', '--verbose', count=True)
@@ -50,14 +57,14 @@ def register(g, phone):
     if phone is None:
         phone = click.prompt("Номер телефона")
 
-    r = g.rocket.devices.register.post(json={'phone': phone})
+    r = g.rocket.devices.register.post(data={"phone": phone})
     if r.status_code >= 400:
         return handle_error(r)
 
     id = r.json()['sms_verification']['id']
     code = click.prompt("Введите код из SMS", type=int)
 
-    r = g.rocket.sms_verifications[self.id].verify.patch(json={'code': code})
+    r = g.rocket.sms_verifications[id]["verify"].patch(data={"code": code})
     if r.status_code >= 400:
         return handle_error(r)
     j = r.json()
@@ -69,19 +76,10 @@ def register(g, phone):
     g.config.write()
 
 
-def handle_error(r):
-    resp = r.json()['response']
-    logging.error(resp)
-    if resp['show_it']:
-        click.secho(resp['description'], fg='red')
-    sys.exit(1)
-
-
 @cli.command()
 @click.option('--password', prompt=True, hide_input=True)
 @click.pass_obj
 def login(g, password):
-    rk = g.rocket
     email = g.config.email
     if not email:
         click.secho("Похоже, вы не авторизовывались с этого компьютера.", fg='red', bold=True)
@@ -89,9 +87,9 @@ def login(g, password):
         click.echo("    rock register")
         return
 
-    r = rk.login.get(json={
-        'email': email,
-        'password': password
+    r = g.rocket.login.get(json={
+        "email": email,
+        "password": password
     })
 
     if r.status_code >= 400:

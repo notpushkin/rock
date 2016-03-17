@@ -1,7 +1,6 @@
 import hashlib
 import time
 import uuid
-import json as json_
 
 from arequests import API
 from requests.auth import AuthBase
@@ -20,8 +19,9 @@ class Rocket(API):
                     "RocketScience/%s (ale@songbee.net)" % API_VERSION,
             # 'Content-type': "application/json",
         })
-        if token is not None:
-            self.session.auth = RocketAuth(token)
+
+        # If token is None, the request still should be signed
+        self.session.auth = RocketAuth(token)
 
 
     @staticmethod
@@ -37,17 +37,11 @@ class RocketAuth(AuthBase):
         self.token = token
 
     def __call__(self, r):
-        # modify and return the request
         if self.token is not None:
-            j = {}
-            if r.body is not None:
-                try:
-                    j = json_.loads(r.body)
-                except ValueError:
-                    pass # or raise?
-            j['token'] = self.token
-            r.body = json_.dumps(j)
-            r.headers['Content-type'] = "application/json"
+            r.headers["Authorization"] = "Token token=" + self.token
+            # In some requests made by the official app, token is also sent
+            # in querystring and/or form body. However, we don't do it as
+            # the header auth is probably sufficient.
 
         now = int(time.time())
         r.headers['x-sig'] = hashlib.md5((\
