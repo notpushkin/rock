@@ -14,27 +14,62 @@ from .rocket import API_VERSION
 
 APP_NAME = "rock-cli"
 CONTEXT_SETTINGS = {
-    "obj": SuperDict(),
     "help_option_names": ["-h", "--help"],
 }
 
+g = SuperDict()
+
+
+def do_login(password=None):
+    email = g.config.email
+    if not email:
+        click.secho("Похоже, вы не авторизовывались с этого компьютера.",
+                    fg="red", bold=True)
+        click.echo("Для авторизации выполните:")
+        click.echo("    rock register")
+        return
+
+    if not password:
+        password = click.prompt("Введите рокеткод", hide_input=True)
+
+    r = g.rocket.login.get(json={
+        "email": email,
+        "password": password
+    })
+
+    if r.status_code >= 400:
+        return handle_error(r)
+
+    j = r.json()
+    g.config.token = j["token"]
+    g.config.write()
+
+    g.rocket.set_token(j["token"])
+    return j
+
 
 def handle_error(r):
-    resp = r.json()["response"]
-    if resp["show_it"]:
-        click.secho(resp["description"], fg="red")
-    sys.exit(1)
+    if r.status_code >= 400:
+        resp = r.json()["response"]
+
+        if resp["show_it"]:
+            click.secho(resp["description"], fg="red")
+
+        if resp["code"] == "INCORRECT_TOKEN":
+            do_login()
+            req = r.request.copy()
+            req.prepare_auth(g.rocket.session.auth)
+            return g.rocket.send(req)
+        else:
+            sys.exit(1)
 
 
 @click.group(context_settings=CONTEXT_SETTINGS)
 @click.option("-v", "--verbose", count=True)
-@click.pass_context
-def cli(ctx, verbose):
+def cli(verbose):
     """
     Консольный клиент для Рокетбанка.
     """
-
-    g = ctx.obj
 
     os.makedirs(click.get_app_dir(APP_NAME), exist_ok=True)
     g.config = YAMLConfig(
@@ -52,65 +87,41 @@ def cli(ctx, verbose):
 
 @cli.command()
 @click.argument("phone", required=False)
-@click.pass_obj
-def register(g, phone):
+def register(phone):
     if phone is None:
         phone = click.prompt("Номер телефона")
 
     r = g.rocket.devices.register.post(data={"phone": phone})
-    if r.status_code >= 400:
-        return handle_error(r)
+    r = handle_error(r)
 
     id = r.json()["sms_verification"]["id"]
     code = click.prompt("Введите код из SMS", type=int)
 
     r = g.rocket.sms_verifications[id]["verify"].patch(data={"code": code})
-    if r.status_code >= 400:
-        return handle_error(r)
+    r = handle_error(r)
     j = r.json()
 
     click.secho("Добро пожаловать, {}!".format(j["user"]["first_name"]), fg="green")
 
-    g.config.token = j["token"]
     g.config.email = j["user"]["email"]
     g.config.write()
 
 
 @cli.command()
-@click.option("--password", prompt=True, hide_input=True)
-@click.pass_obj
-def login(g, password):
-    email = g.config.email
-    if not email:
-        click.secho("Похоже, вы не авторизовывались с этого компьютера.",
-                    fg="red", bold=True)
-        click.echo("Для авторизации выполните:")
-        click.echo("    rock register")
-        return
-
-    r = g.rocket.login.get(json={
-        "email": email,
-        "password": password
-    })
-
-    if r.status_code >= 400:
-        return handle_error(r)
-
-    j = r.json()
-    click.secho("Добро пожаловать, {}!".format(j["user"]["first_name"]), fg="green")
-    g.config.token = j["token"]
-    g.config.write()
+@click.option("--password", hide_input=True)
+def login(password=None):
+    click.secho("Теперь rock сам спрашивает рокеткод при необходимости. "
+                "Больше не надо выполнять `rock login` каждый раз, ура!",
+                fg="yellow")
 
 
 @cli.command()
-@click.pass_obj
-def tariffs(g):
+def tariffs():
     """
     Посмотреть список тарифов.
     """
     r = g.rocket.tariffs.get()
-    if r.status_code >= 400:
-        return handle_error(r)
+    r = handle_error(r)
 
     for tariff in r.json():
         click.echo("- {name} <{url}>".format(
@@ -118,14 +129,12 @@ def tariffs(g):
             url=tariff["url"]))
 
 @cli.command()
-@click.pass_obj
-def balance(g):
+def balance():
     """
     Посмотреть баланс основного счёта.
     """
     r = g.rocket.operations.cool_feed.get(params={"per_page": 1})
-    if r.status_code >= 400:
-        return handle_error(r)
+    r = handle_error(r)
     j = r.json()
 
     template = "".join([
@@ -137,14 +146,12 @@ def balance(g):
         miles=int(j["miles"])))
 
 @cli.command()
-@click.pass_obj
-def feed(g):
+def feed():
     """
     Показывает последние операции в ленте.
     """
     r = g.rocket.operations.cool_feed.get()
-    if r.status_code >= 400:
-        return handle_error(r)
+    r = handle_error(r)
     j = r.json()
 
     lines = []
@@ -170,8 +177,7 @@ def feed(g):
               metavar="<4242424242424242>", help="Номер карты получателя")
 @click.option("--amount", prompt="Сумма (в рублях)",
               metavar="<10>", help="Сумма перевода в рублях")
-@click.pass_obj
-def transfer(g, recipient, amount):
+def transfer(recipient, amount):
     """
     Перевести деньги на номер карты.
     """
@@ -179,6 +185,7 @@ def transfer(g, recipient, amount):
         "source_card": recipient,
         "amount": amount
     })
+    r = handle_error(r)
     j = r.json()
 
     if j["status"] == "approved":
@@ -191,8 +198,7 @@ def transfer(g, recipient, amount):
 
 
 @cli.command()
-@click.pass_obj
-def repl(g):
+def repl():
     """
     Запускает интерпретатор Python с подключенной обёрткой API Рокетбанка.
     """
@@ -208,8 +214,7 @@ def repl(g):
 
 
 @cli.command()
-@click.pass_obj
-def version(g):
+def version():
     """
     Выводит номер версии приложения.
     """
