@@ -25,9 +25,9 @@ setup(
     url="https://github.com/iamale/rock",
     packages=["rock_cli"],
     install_requires=[
-        "Click",
-        "yamlcfg",
-        "tabulate",
+        "Click==6.4",
+        "yamlcfg==0.5.3",
+        "tabulate==0.7.5",
         "arequests==0.1.0",
     ],
     entry_points="""
