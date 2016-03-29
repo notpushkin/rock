@@ -1,6 +1,20 @@
+#!/usr/bin/env python3
+import os
+import sys
 from setuptools import setup
 
 from rock_cli import __version__
+
+if sys.argv[-1] == 'publish':
+    if os.system("pip3 freeze | grep wheel"):
+        print("wheel not installed.\nUse `pip install wheel`.\nExiting.")
+        sys.exit()
+    os.system("python3 setup.py sdist upload")
+    os.system("python3 setup.py bdist_wheel upload")
+    print("You probably want to also tag the version now:")
+    print("  git tag -a {0} -m 'version {0}'".format(__version__))
+    print("  git push --tags")
+    sys.exit()
 
 setup(
     name="rock-cli",
