@@ -17,10 +17,9 @@ class Rocket(API):
             "X-Device-ID": device_id or self.generate_id(),
             "User-agent": user_agent or
                           "RocketScience/%s (ale@songbee.net)" % API_VERSION,  # noqa
-            # "Content-type": "application/json",
         })
 
-        # If token is None, the request still should be signed
+        # If token is None, the request still should be signed with X-Sig
         self.session.auth = RocketAuth(token)
 
     @staticmethod
@@ -43,8 +42,8 @@ class RocketAuth(AuthBase):
             # the header auth is probably sufficient.
 
         now = int(time.time())
-        r.headers["x-sig"] = hashlib.md5((
+        r.headers["X-Sig"] = hashlib.md5((
             "0Jk211uvxyyYAFcSSsBK3+etfkDPKMz6asDqrzr+f7c=_" +
             str(int(now)) + "_dossantos").encode()).hexdigest()
-        r.headers["x-time"] = str(now)
+        r.headers["X-Time"] = str(now)
         return r
