@@ -61,3 +61,5 @@ def handle_error(r):
             return rocket.send(req)
         else:
             sys.exit(1)
+
+    return r
