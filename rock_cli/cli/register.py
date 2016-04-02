@@ -5,6 +5,9 @@ from ..globals import rocket, config, handle_error
 @click.command("register")
 @click.argument("phone", required=False)
 def cmd_register(phone):
+    """
+    Войти в приложение с помощью SMS.
+    """
     if phone is None:
         phone = click.prompt("Номер телефона")
 
